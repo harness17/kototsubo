@@ -1,0 +1,121 @@
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+
+<!-- 汎用モーダル -->
+<div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="myModalLabel">タイトル</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="myModalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 汎用モーダル(ワイド) -->
+<div class="modal fade" id="myModalWide" tabindex="-1" aria-labelledby="myModalWideLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="myModalWideLabel">タイトル</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="myModalWideBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- アラートメッセージモーダル -->
+<div class="modal fade" id="modal-alertmessage" tabindex="-1" aria-labelledby="alertMessageLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertMessageLabel">メッセージ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="alertMessageBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- テキスト入力モーダル -->
+<div class="modal fade" id="TextboxModal" tabindex="-1" aria-labelledby="TextboxModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="TextboxModalLabel">入力</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="TextboxModalInput" class="form-control" />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="TextboxModalOk">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ローディングモーダル -->
+<div class="modal fade" id="modal-alertmessage-loading" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 mb-0">処理中...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 確認モーダル -->
+<div class="modal fade" id="CommonConfirmModal" tabindex="-1" aria-labelledby="CommonConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="CommonConfirmModalLabel">確認</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="CommonConfirmModalBody">
+                よろしいですか？
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-danger" id="CommonConfirmModalOk">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@{
+    var message = TempData["Message"] as string;
+}
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <script>
+        $(function () {
+            // ポイント: JsonSerializer.Serialize でバックスラッシュ・クォート・改行を安全にエスケープする
+            $('#alertMessageBody').text(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(message ?? "")));
+            var modal = new bootstrap.Modal(document.getElementById('modal-alertmessage'));
+            modal.show();
+        });
+    </script>
+}

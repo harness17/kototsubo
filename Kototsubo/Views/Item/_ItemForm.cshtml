@@ -1,0 +1,170 @@
+@model ItemViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<div class="row">
+    <div class="col-md-8">
+        <fieldset class="card mb-3">
+            <div class="card-header"><i class="fas fa-info-circle me-1"></i>基本情報</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label"></label>
+                    <input asp-for="Title" class="form-control" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label asp-for="MediaType" class="form-label"></label>
+                        <select asp-for="MediaType" asp-items="Html.GetEnumSelectList<MediaType>()" class="form-select" id="mediaTypeSelect"></select>
+                        <span asp-validation-for="MediaType" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <input asp-for="IsDigital" class="form-check-input" />
+                            <label asp-for="IsDigital" class="form-check-label"></label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label asp-for="OwnershipStatus" class="form-label"></label>
+                        <select asp-for="OwnershipStatus" asp-items="Html.GetEnumSelectList<OwnershipStatus>()" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Creator" class="form-label" id="creatorLabel"></label>
+                        <input asp-for="Creator" class="form-control" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Publisher" class="form-label" id="publisherLabel"></label>
+                        <input asp-for="Publisher" class="form-control" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label asp-for="AcquisitionDate" class="form-label"></label>
+                        <input asp-for="AcquisitionDate" class="form-control" type="date" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label asp-for="ReleaseDate" class="form-label"></label>
+                        <input asp-for="ReleaseDate" class="form-control" type="date" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label asp-for="Rating" class="form-label"></label>
+                        <select asp-for="Rating" class="form-select">
+                            <option value="">未評価</option>
+                            @for (var i = 5; i >= 1; i--)
+                            {
+                                <option value="@i">@(new string('★', i))@(new string('☆', 5 - i))</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset class="card mb-3">
+            <div class="card-header"><i class="fas fa-barcode me-1"></i>識別コード</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3" id="isbnGroup">
+                        <label asp-for="ISBN" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="ISBN" class="form-control" />
+                            <button type="button" class="btn btn-outline-primary" id="lookupIsbnButton">
+                                <span class="spinner-border spinner-border-sm d-none" id="lookupIsbnSpinner" aria-hidden="true"></span>
+                                検索
+                            </button>
+                        </div>
+                        <div class="form-text d-none" id="lookupIsbnMessage"></div>
+                    </div>
+                    <div class="col-md-4 mb-3" id="janGroup">
+                        <label asp-for="JANCode" class="form-label"></label>
+                        <input asp-for="JANCode" class="form-control" />
+                    </div>
+                    <div class="col-md-4 mb-3" id="asinGroup">
+                        <label asp-for="ASIN" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="ASIN" class="form-control" />
+                            <button type="button" class="btn btn-outline-primary" id="lookupAsinButton">
+                                <span class="spinner-border spinner-border-sm d-none" id="lookupAsinSpinner" aria-hidden="true"></span>
+                                検索
+                            </button>
+                        </div>
+                        <div class="form-text text-danger d-none" id="lookupAsinMessage"></div>
+                    </div>
+                    <div class="col-md-4 mb-3" id="steamAppIdGroup">
+                        <label asp-for="SteamAppId" class="form-label"></label>
+                        <input asp-for="SteamAppId" class="form-control" />
+                    </div>
+                </div>
+                <div class="card border-0 bg-body-tertiary d-none" id="isbnCandidatePanel">
+                    <div class="card-body p-3 p-md-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <i class="fas fa-book-open text-primary" aria-hidden="true"></i>
+                            <div class="fw-semibold">反映するNDL書誌を選択</div>
+                            <span class="badge rounded-pill text-bg-secondary"
+                                  id="isbnCandidateCount"></span>
+                        </div>
+                        <div class="row g-2" id="isbnCandidateList"></div>
+                        <div class="d-flex justify-content-end mt-3 pt-3 border-top">
+                            <button type="button"
+                                    class="btn btn-primary px-4"
+                                    id="applyIsbnCandidateButton">
+                                <i class="fas fa-check me-1" aria-hidden="true"></i>
+                                選択した書誌を反映
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset class="card mb-3" id="mediaSpecific">
+            <div class="card-header"><i class="fas fa-sliders me-1"></i>メディア固有情報</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3" id="platformGroup">
+                        <label asp-for="Platform" class="form-label"></label>
+                        <input asp-for="Platform" class="form-control" />
+                    </div>
+                    <div class="col-md-4 mb-3" id="formatGroup">
+                        <label asp-for="Format" class="form-label"></label>
+                        <input asp-for="Format" class="form-control" />
+                    </div>
+                    <div class="col-md-4 mb-3" id="pageCountGroup">
+                        <label asp-for="PageCount" class="form-label"></label>
+                        <input asp-for="PageCount" class="form-control" type="number" min="0" />
+                    </div>
+                    <div class="col-md-4 mb-3" id="discCountGroup">
+                        <label asp-for="DiscCount" class="form-label"></label>
+                        <input asp-for="DiscCount" class="form-control" type="number" min="0" />
+                    </div>
+                    <div class="col-md-4 mb-3" id="runtimeGroup">
+                        <label asp-for="Runtime" class="form-label"></label>
+                        <input asp-for="Runtime" class="form-control" type="number" min="0" />
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    </div>
+
+    <div class="col-md-4">
+        <fieldset class="card mb-3">
+            <div class="card-header"><i class="fas fa-image me-1"></i>カバー画像</div>
+            <div class="card-body">
+                <img id="coverPreview" src="@Model.CoverImageUrl" alt="カバー画像"
+                     class="img-fluid mb-2 rounded"
+                     style="max-height:300px; @(string.IsNullOrEmpty(Model.CoverImageUrl) ? "display:none" : "")" />
+                <label asp-for="CoverImageUrl" class="form-label"></label>
+                <input asp-for="CoverImageUrl" class="form-control" placeholder="https://..." />
+            </div>
+        </fieldset>
+
+        <fieldset class="card mb-3">
+            <div class="card-header"><i class="fas fa-sticky-note me-1"></i>メモ</div>
+            <div class="card-body">
+                <textarea asp-for="Memo" class="form-control" rows="5"></textarea>
+            </div>
+        </fieldset>
+    </div>
+</div>

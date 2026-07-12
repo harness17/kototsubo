@@ -1,0 +1,42 @@
+@model IsbnImportViewModel
+
+@{
+    ViewData["Title"] = "ISBN 一括登録";
+}
+
+<h1 class="h3 mb-3">ISBN 一括登録</h1>
+
+<div class="card">
+    <div class="card-body">
+        <p>ISBNを直接入力するか、バーコードリーダーで作成したファイルを選択してください。</p>
+        <form asp-action="Isbn" method="post" enctype="multipart/form-data"
+              data-loading-text="書誌情報を検索中…">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="mb-3">
+                <label asp-for="Isbns" class="form-label"></label>
+                <textarea asp-for="Isbns" class="form-control font-monospace" rows="10"
+                          placeholder="9784101010014&#10;9784003101018"></textarea>
+                <span asp-validation-for="Isbns" class="text-danger"></span>
+                <div class="form-text">改行、空白、カンマ区切り。ISBN-10/13、最大20,000件です。</div>
+            </div>
+            <div class="text-center text-muted mb-3">または</div>
+            <div class="mb-3">
+                <label asp-for="File" class="form-label"></label>
+                <input asp-for="File" class="form-control"
+                       accept=".txt,.csv,text/plain,text/csv" />
+                <span asp-validation-for="File" class="text-danger"></span>
+                <div class="form-text">
+                    UTF-8のTXT/CSV、1行1ISBN、ヘッダーなし、最大1MB・20,000件。
+                    テキスト入力との同時指定はできません。
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-list-check me-1"></i>書誌情報を検索
+            </button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

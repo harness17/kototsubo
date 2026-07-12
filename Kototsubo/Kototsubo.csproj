@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Site</RootNamespace>
+    <AssemblyName>Site</AssemblyName>
+    <RunAnalyzers Condition="'$(Configuration)' == 'Debug'">false</RunAnalyzers>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <StaticWebAssetsEnabled Condition="'$(Configuration)' == 'Debug'">false</StaticWebAssetsEnabled>
+    <RazorCompileOnBuild Condition="'$(Configuration)' == 'Debug'">false</RazorCompileOnBuild>
+    <RazorCompileOnPublish Condition="'$(Configuration)' == 'Debug'">false</RazorCompileOnPublish>
+    <UseRazorSourceGenerator Condition="'$(Configuration)' == 'Debug'">false</UseRazorSourceGenerator>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CommonLibrary\CommonLibrary.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <None Update="App_Data\**\.gitkeep"
+          CopyToOutputDirectory="Never"
+          CopyToPublishDirectory="Never" />
+  </ItemGroup>
+  <ItemGroup>
+    <RequiredRuntimeDirectory Include="App_Data\KindleImports" />
+    <RequiredRuntimeDirectory Include="App_Data\GameImports" />
+    <RequiredRuntimeDirectory Include="App_Data\CdImports" />
+    <RequiredRuntimeDirectory Include="App_Data\DvdImports" />
+    <RequiredRuntimeDirectory Include="App_Data\SteamImports" />
+  </ItemGroup>
+  <Target Name="CreateRequiredRuntimeDirectories" AfterTargets="Publish">
+    <MakeDir Directories="@(RequiredRuntimeDirectory->'$(PublishDir)%(Identity)')" />
+  </Target>
+</Project>

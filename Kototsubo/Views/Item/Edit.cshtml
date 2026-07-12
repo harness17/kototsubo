@@ -1,0 +1,22 @@
+@model ItemViewModel
+@{
+    ViewData["Title"] = "所蔵品編集";
+}
+
+<h2><i class="fas fa-pen me-2"></i>所蔵品編集</h2>
+<hr />
+
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="CreateDate" />
+    @await Html.PartialAsync("_ItemForm", Model)
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>更新</button>
+        <a asp-action="Index" asp-route-returnList="true" class="btn btn-outline-secondary ms-2">キャンセル</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ItemFormScripts" />
+}

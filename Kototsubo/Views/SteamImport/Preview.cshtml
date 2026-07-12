@@ -1,0 +1,98 @@
+@model SteamImportPreviewViewModel
+
+@{
+    ViewData["Title"] = "Steam 一括登録プレビュー";
+    var candidateCount = Model.Rows.Count(x => !x.IsDuplicate && x.Error == null);
+}
+
+<h1 class="h3 mb-3">登録内容の確認（Steam）</h1>
+
+<div class="alert alert-info">
+    Steam ID: @(Model.SteamId ?? "不明") /
+    JSON内ゲーム数 @Model.TotalGames 件 /
+    登録候補 @candidateCount 件 /
+    スキップ @(Model.Rows.Count - candidateCount) 件です。
+</div>
+
+<form asp-action="Confirm" method="post" data-loading-text="一括登録中…">
+    <input asp-for="TempFilePath" type="hidden" />
+    <div class="mb-3 d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="selectAllSteamRows">
+            全選択
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAllSteamRows">
+            全解除
+        </button>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead>
+                <tr>
+                    <th>登録</th>
+                    <th>カバー</th>
+                    <th>タイトル</th>
+                    <th>プレイ時間</th>
+                    <th>Steam App ID</th>
+                    <th>状態</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    var canImport = !row.IsDuplicate && row.Error == null;
+                    <tr class="@(!canImport ? "table-secondary" : "")">
+                        <td>
+                            @if (canImport)
+                            {
+                                <input class="form-check-input steam-row-check" type="checkbox"
+                                       name="SelectedAppIds" value="@row.AppId" checked />
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">スキップ</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(row.CoverImageUrl))
+                            {
+                                <img src="@row.CoverImageUrl" alt=""
+                                     class="rounded"
+                                     style="width:92px; max-width:100%; height:auto;" />
+                            }
+                        </td>
+                        <td>@row.Name</td>
+                        <td>
+                            @if (row.PlaytimeMinutes > 0)
+                            {
+                                @((row.PlaytimeMinutes / 60.0).ToString("F1"))<text> 時間</text>
+                            }
+                            else
+                            {
+                                <text>未プレイ</text>
+                            }
+                        </td>
+                        <td><code>@row.AppId</code></td>
+                        <td>@(row.Error ?? (row.IsDuplicate ? "登録済みまたは入力内重複" : "登録可能"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn btn-primary" disabled="@(candidateCount == 0)">
+        <i class="fas fa-file-import me-1"></i>選択した Steam ゲームを登録
+    </button>
+    <a asp-action="Index" class="btn btn-outline-secondary">戻る</a>
+</form>
+
+@section Scripts {
+    <script>
+        $(function () {
+            $('#selectAllSteamRows').on('click', function () {
+                $('.steam-row-check').prop('checked', true);
+            });
+            $('#clearAllSteamRows').on('click', function () {
+                $('.steam-row-check').prop('checked', false);
+            });
+        });
+    </script>
+}

@@ -1,0 +1,41 @@
+@model WordViewModel
+@{
+    ViewData["Title"] = "言葉を登録";
+}
+
+<h2><i class="fas fa-quote-left me-2"></i>言葉を登録</h2>
+<hr />
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <partial name="_WordForm" model="Model" />
+    <div class="mb-3">
+        <button type="button" id="toggleDetails" class="btn btn-outline-secondary">
+            <i class="fas fa-sliders me-1"></i>くわしく登録
+        </button>
+    </div>
+    <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save me-1"></i>登録
+    </button>
+    <a asp-action="Index" asp-route-itemId="@Model.ItemId"
+       class="btn btn-outline-secondary ms-2">キャンセル</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        $(function () {
+            var $details = $('#wordDetails');
+            var hasDetails = $details.find('input:not([type=checkbox]), textarea, select')
+                .filter(function () { return $(this).val(); }).length > 0;
+            if (!hasDetails) $details.hide();
+
+            $('#toggleDetails').on('click', function () {
+                $details.toggle();
+                $(this).html($details.is(':visible')
+                    ? '<i class="fas fa-sliders me-1"></i>かんたん登録'
+                    : '<i class="fas fa-sliders me-1"></i>くわしく登録');
+            });
+        });
+    </script>
+}

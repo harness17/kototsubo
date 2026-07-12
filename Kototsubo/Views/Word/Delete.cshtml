@@ -1,0 +1,27 @@
+@model WordViewModel
+@{
+    ViewData["Title"] = "言葉を削除";
+}
+
+<h2><i class="fas fa-trash me-2 text-danger"></i>言葉を削除</h2>
+<hr />
+
+<div class="alert alert-warning">
+    この言葉を削除します。よろしいですか。
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">@Model.Body</p>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">
+        <i class="fas fa-trash me-1"></i>削除する
+    </button>
+    <a asp-action="Details" asp-route-id="@Model.Id"
+       class="btn btn-outline-secondary ms-2">キャンセル</a>
+</form>

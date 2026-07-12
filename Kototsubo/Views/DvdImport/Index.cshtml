@@ -1,0 +1,41 @@
+@model DvdImportViewModel
+
+@{
+    ViewData["Title"] = "DVD/Blu-ray JAN 一括登録";
+}
+
+<h1 class="h3 mb-3">DVD/Blu-ray JAN 一括登録</h1>
+
+<div class="card">
+    <div class="card-body">
+        <p>DVD/Blu-ray の JAN コードを直接入力するか、バーコードリーダーで作成したファイルを選択してください。</p>
+        <form asp-action="Index" method="post" enctype="multipart/form-data"
+              data-loading-text="DVD/Blu-ray 情報を検索中…">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="mb-3">
+                <label asp-for="Jans" class="form-label"></label>
+                <textarea asp-for="Jans" class="form-control font-monospace" rows="10"
+                          placeholder="4988013112233&#10;4934569603371"></textarea>
+                <span asp-validation-for="Jans" class="text-danger"></span>
+                <div class="form-text">改行、空白、カンマ区切り。13桁JAN、最大@(DvdImportViewModel.MaxInputLength.ToString())文字。</div>
+            </div>
+            <div class="text-center text-muted mb-3">または</div>
+            <div class="mb-3">
+                <label asp-for="File" class="form-label"></label>
+                <input asp-for="File" class="form-control"
+                       accept=".txt,.csv,text/plain,text/csv" />
+                <span asp-validation-for="File" class="text-danger"></span>
+                <div class="form-text">
+                    UTF-8のTXT/CSV、1行1JAN、最大1MB。テキスト入力との同時指定はできません。
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-list-check me-1"></i>DVD/Blu-ray を検索
+            </button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

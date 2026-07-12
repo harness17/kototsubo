@@ -1,0 +1,128 @@
+@model WordListViewModel
+@{
+    ViewData["Title"] = "言葉一覧";
+    var routeValues = new Dictionary<string, string>();
+    if (!string.IsNullOrWhiteSpace(Model.Search.Keyword)) routeValues["Search.Keyword"] = Model.Search.Keyword;
+    if (Model.Search.Genre.HasValue) routeValues["Search.Genre"] = Model.Search.Genre.Value.ToString();
+    if (Model.ItemId.HasValue) routeValues["itemId"] = Model.ItemId.Value.ToString();
+    if (!string.IsNullOrWhiteSpace(Model.Pager.sort)) routeValues["sort"] = Model.Pager.sort;
+    if (!string.IsNullOrWhiteSpace(Model.Pager.sortdir)) routeValues["sortdir"] = Model.Pager.sortdir;
+
+    var totalPages = Model.Summary != null && Model.Pager.recoedNumber > 0
+        ? (int)Math.Ceiling((double)Model.Summary.TotalRecords / Model.Pager.recoedNumber)
+        : 0;
+    var pager = new PagerViewModel
+    {
+        CurrentPage = Model.Pager.page,
+        TotalPages = totalPages,
+        Action = "Index",
+        AriaLabel = "言葉一覧ページング",
+        RouteValues = routeValues
+    };
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0"><i class="fas fa-quote-left me-2"></i>言葉一覧</h2>
+        @if (Model.ItemId.HasValue)
+        {
+            <small class="text-muted">
+                所蔵品:
+                <a asp-controller="Item" asp-action="Details" asp-route-id="@Model.ItemId">
+                    @(Model.ItemTitle ?? $"ID: {Model.ItemId}")
+                </a>
+            </small>
+        }
+    </div>
+    <a asp-action="Create" asp-route-itemId="@Model.ItemId" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>言葉を登録
+    </a>
+</div>
+
+<form asp-action="Index" method="get" class="card mb-3">
+    @if (Model.ItemId.HasValue)
+    {
+        <input type="hidden" name="itemId" value="@Model.ItemId" />
+    }
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-7">
+                <label asp-for="Search.Keyword" class="form-label"></label>
+                <input asp-for="Search.Keyword" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Search.Genre" class="form-label"></label>
+                <select asp-for="Search.Genre" asp-items="Html.GetEnumSelectList<WordGenre>()" class="form-select">
+                    <option value="">すべて</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-search me-1"></i>検索
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+@if (Model.Summary != null)
+{
+    <p class="text-muted small">@Model.Summary.Summary</p>
+}
+
+@if (Model.Items.Count == 0)
+{
+    <div class="text-center text-muted py-5">
+        <i class="fas fa-quote-left fa-3x mb-3"></i>
+        <p class="lead">言葉がまだ登録されていません</p>
+    </div>
+}
+else
+{
+    <partial name="_Pager" model="pager" />
+
+    <div class="row g-3">
+        @foreach (var word in Model.Items)
+        {
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <p class="card-text" style="white-space: pre-wrap;">@word.Body</p>
+                        <div class="d-flex flex-wrap gap-2 align-items-center text-muted small">
+                            @if (word.Genre.HasValue)
+                            {
+                                <span class="badge bg-secondary">@Html.DisplayFor(_ => word.Genre)</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(word.SourceTitle))
+                            {
+                                <span>@word.SourceTitle</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(word.Author))
+                            {
+                                <span>/ @word.Author</span>
+                            }
+                            @if (word.ItemId.HasValue)
+                            {
+                                <a asp-controller="Item" asp-action="Details" asp-route-id="@word.ItemId">
+                                    @(word.ItemTitle ?? "所蔵品")
+                                </a>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-footer text-end">
+                        <a asp-action="Details" asp-route-id="@word.Id" class="btn btn-sm btn-outline-primary">詳細</a>
+                        <a asp-action="Edit" asp-route-id="@word.Id" class="btn btn-sm btn-outline-secondary">編集</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <partial name="_Pager" model="pager" />
+}
+
+@if (Model.ItemId.HasValue)
+{
+    <a asp-controller="Item" asp-action="Details" asp-route-id="@Model.ItemId"
+       class="btn btn-outline-secondary mt-2">所蔵品詳細へ戻る</a>
+}

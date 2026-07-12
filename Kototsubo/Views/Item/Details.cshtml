@@ -1,0 +1,168 @@
+@model ItemViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>@Model.Title</h2>
+    <div>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
+            <i class="fas fa-pen me-1"></i>編集
+        </a>
+        <a asp-action="Index" asp-route-returnList="true" class="btn btn-outline-secondary ms-1">一覧へ</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-info-circle me-1"></i>基本情報</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">メディア種別</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-secondary">@Html.DisplayFor(m => m.MediaType)</span>
+                        @if (Model.IsDigital) { <span class="badge bg-info ms-1">デジタル</span> }
+                    </dd>
+                    <dt class="col-sm-4">所有ステータス</dt>
+                    <dd class="col-sm-8">@Html.DisplayFor(m => m.OwnershipStatus)</dd>
+                    <dt class="col-sm-4">クリエイター</dt>
+                    <dd class="col-sm-8">@(Model.Creator ?? "—")</dd>
+                    <dt class="col-sm-4">出版社</dt>
+                    <dd class="col-sm-8">@(Model.Publisher ?? "—")</dd>
+                    <dt class="col-sm-4">発売日</dt>
+                    <dd class="col-sm-8">@(Model.ReleaseDate?.ToString("yyyy/MM/dd") ?? "—")</dd>
+                    <dt class="col-sm-4">取得日</dt>
+                    <dd class="col-sm-8">@(Model.AcquisitionDate?.ToString("yyyy/MM/dd") ?? "—")</dd>
+                    <dt class="col-sm-4">評価</dt>
+                    <dd class="col-sm-8">
+                        @if (Model.Rating.HasValue)
+                        {
+                            @(new string('★', Model.Rating.Value))@(new string('☆', 5 - Model.Rating.Value))
+                        }
+                        else
+                        {
+                            <text>未評価</text>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-barcode me-1"></i>識別コード</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    @if (!string.IsNullOrEmpty(Model.ISBN))
+                    {
+                        <dt class="col-sm-4">ISBN</dt>
+                        <dd class="col-sm-8">@Model.ISBN</dd>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.JANCode))
+                    {
+                        <dt class="col-sm-4">JANコード</dt>
+                        <dd class="col-sm-8">@Model.JANCode</dd>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.ASIN))
+                    {
+                        <dt class="col-sm-4">ASIN</dt>
+                        <dd class="col-sm-8">@Model.ASIN</dd>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.SteamAppId))
+                    {
+                        <dt class="col-sm-4">Steam App ID</dt>
+                        <dd class="col-sm-8">@Model.SteamAppId</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        @if (Model.MediaType == MediaType.Game || Model.MediaType == MediaType.Movie || Model.MediaType == MediaType.Music)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-sliders me-1"></i>メディア固有情報</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        @if (!string.IsNullOrEmpty(Model.Platform))
+                        {
+                            <dt class="col-sm-4">プラットフォーム</dt>
+                            <dd class="col-sm-8">@Model.Platform</dd>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.Format))
+                        {
+                            <dt class="col-sm-4">フォーマット</dt>
+                            <dd class="col-sm-8">@Model.Format</dd>
+                        }
+                        @if (Model.DiscCount.HasValue)
+                        {
+                            <dt class="col-sm-4">ディスク枚数</dt>
+                            <dd class="col-sm-8">@Model.DiscCount 枚</dd>
+                        }
+                        @if (Model.Runtime.HasValue)
+                        {
+                            <dt class="col-sm-4">上映時間</dt>
+                            <dd class="col-sm-8">@Model.Runtime 分</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        }
+
+        @if (Model.MediaType == MediaType.Book && Model.PageCount.HasValue)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-book me-1"></i>書籍情報</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">ページ数</dt>
+                        <dd class="col-sm-8">@Model.PageCount ページ</dd>
+                    </dl>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="col-md-4">
+        @if (!string.IsNullOrEmpty(Model.CoverImageUrl))
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-image me-1"></i>カバー画像</div>
+                <div class="card-body text-center">
+                    <img src="@Model.CoverImageUrl" alt="カバー画像" class="img-fluid rounded" style="max-height:400px" />
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.Memo))
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-sticky-note me-1"></i>メモ</div>
+                <div class="card-body">
+                    <p class="mb-0" style="white-space: pre-wrap;">@Model.Memo</p>
+                </div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-body text-muted small">
+                <p class="mb-1">登録日: @Model.CreateDate.ToString("yyyy/MM/dd HH:mm")</p>
+                <p class="mb-0">更新日: @Model.UpdateDate.ToString("yyyy/MM/dd HH:mm")</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-quote-left me-1"></i>この蔵品からの言葉</span>
+        <a asp-controller="Word" asp-action="Create" asp-route-itemId="@Model.Id"
+           class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-plus me-1"></i>言葉を追加
+        </a>
+    </div>
+    <div class="card-body">
+        <a asp-controller="Word" asp-action="Index" asp-route-itemId="@Model.Id">
+            この蔵品からの言葉を表示
+        </a>
+    </div>
+</div>

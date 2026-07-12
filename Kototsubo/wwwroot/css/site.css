@@ -1,0 +1,97 @@
+/* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
+for details on configuring this project to bundle and minify static web assets. */
+
+/* ===== サイトテーマカラー (Bootstrap CSS変数で上書き) ===== */
+:root {
+  --bs-primary: #1b6ec2;
+  --bs-primary-rgb: 27, 110, 194;
+  --bs-link-color: #0077cc;
+  --bs-link-color-rgb: 0, 119, 204;
+  --bs-link-hover-color: #005fa3;
+}
+
+/* ===== ナビゲーションバー ===== */
+a.navbar-brand {
+  white-space: normal;
+  text-align: center;
+  word-break: break-all;
+}
+
+/* ===== レスポンシブフォントサイズ ===== */
+html {
+  font-size: 14px;
+}
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* ===== フォームフローティングラベルのプレースホルダー ===== */
+.form-floating > .form-control-plaintext::placeholder,
+.form-floating > .form-control::placeholder {
+  color: var(--bs-secondary-color);
+  text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder,
+.form-floating > .form-control:focus::placeholder {
+  text-align: start;
+}
+
+/* ===== 所蔵品一覧テーブル ===== */
+.table-fixed {
+  table-layout: fixed;
+}
+.table-fixed td,
+.table-fixed th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== ローディングオーバーレイ ===== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .55);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s;
+}
+.loading-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+.loading-overlay .spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+.loading-overlay .loading-text {
+  margin-top: .75rem;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+/* ===== ISBN書誌候補 ===== */
+.isbn-candidate-option {
+  cursor: pointer;
+  transition:
+    border-color .15s ease,
+    background-color .15s ease,
+    box-shadow .15s ease;
+}
+
+.isbn-candidate-option:hover {
+  border-color: var(--bs-primary-border-subtle) !important;
+}
+
+.isbn-candidate-option:focus-within {
+  outline: .2rem solid rgba(var(--bs-primary-rgb), .2);
+  outline-offset: 1px;
+}

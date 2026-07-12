@@ -1,0 +1,60 @@
+@model CdImportPreviewViewModel
+
+@{
+    ViewData["Title"] = "音楽CD 一括登録プレビュー";
+    var candidateCount = Model.Rows.Count(x => x.Result != null && !x.IsDuplicate && x.Error == null);
+}
+
+<h1 class="h3 mb-3">登録内容の確認（音楽CD）</h1>
+
+<div class="alert alert-info">
+    登録候補 @candidateCount 件、スキップ @(Model.Rows.Count - candidateCount) 件です。
+</div>
+
+<form asp-action="Confirm" method="post" data-loading-text="一括登録中…">
+    <input asp-for="TempFilePath" type="hidden" />
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead>
+                <tr>
+                    <th>登録</th>
+                    <th>タイトル</th>
+                    <th>アーティスト</th>
+                    <th>レーベル</th>
+                    <th>枚数</th>
+                    <th>JAN</th>
+                    <th>状態</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    var canImport = row.Result != null && !row.IsDuplicate && row.Error == null;
+                    <tr class="@(!canImport ? "table-secondary" : "")">
+                        <td>
+                            @if (canImport)
+                            {
+                                <input class="form-check-input" type="checkbox"
+                                       name="SelectedJans" value="@row.Result!.Jan" checked />
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">スキップ</span>
+                            }
+                        </td>
+                        <td>@row.Result?.Title</td>
+                        <td>@row.Result?.Creator</td>
+                        <td>@row.Result?.Publisher</td>
+                        <td>@(row.Result?.DiscCount?.ToString() ?? "")</td>
+                        <td><code>@(row.Result?.Jan ?? row.Input)</code></td>
+                        <td>@(row.Error ?? (row.IsDuplicate ? "登録済みまたは入力内重複" : "登録可能"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn btn-primary" disabled="@(candidateCount == 0)">
+        <i class="fas fa-file-import me-1"></i>選択した音楽CD を登録
+    </button>
+    <a asp-action="Index" class="btn btn-outline-secondary">戻る</a>
+</form>

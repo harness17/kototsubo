@@ -1,0 +1,33 @@
+@model CdImportResultViewModel
+
+@{
+    ViewData["Title"] = "音楽CD 一括登録結果";
+}
+
+<h1 class="h3 mb-3">一括登録結果（音楽CD）</h1>
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">登録件数</dt>
+            <dd class="col-sm-9">@Model.ImportedCount 件</dd>
+            <dt class="col-sm-3">スキップ件数</dt>
+            <dd class="col-sm-9">@Model.SkippedCount 件</dd>
+        </dl>
+
+        @if (Model.Errors.Count > 0)
+        {
+            <div class="alert alert-warning">
+                <ul class="mb-0">
+                    @foreach (var error in Model.Errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <a asp-controller="Item" asp-action="Index" class="btn btn-primary">蔵品一覧へ</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">続けて登録</a>
+    </div>
+</div>

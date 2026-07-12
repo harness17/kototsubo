@@ -1,0 +1,213 @@
+@model WordViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<input type="hidden" asp-for="ItemId" />
+
+<div class="mb-3">
+    <label class="form-label">関連する所蔵品</label>
+    <div id="wordItemSelected" class="alert alert-info @(Model.ItemId.HasValue ? "" : "d-none")">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span>
+                <a id="wordItemSelectedLink" asp-controller="Item" asp-action="Details" asp-route-id="@Model.ItemId">
+                    <span id="wordItemSelectedTitle">@(Model.ItemTitle ?? (Model.ItemId.HasValue ? $"ID: {Model.ItemId}" : ""))</span>
+                </a>
+                <span id="wordItemSelectedCreator" class="text-muted"></span>
+            </span>
+            <button type="button" id="wordItemChangeButton" class="btn btn-sm btn-outline-primary">変更</button>
+            <button type="button" id="wordItemClearButton" class="btn btn-sm btn-outline-secondary">解除</button>
+        </div>
+    </div>
+    <div id="wordItemSearch" class="@(Model.ItemId.HasValue ? "d-none" : "")">
+        <input type="search" id="wordItemSearchKeyword" class="form-control" autocomplete="off"
+               placeholder="タイトルまたは作者で検索" />
+        <div id="wordItemSearchResults" class="list-group mt-2 d-none"></div>
+        <div id="wordItemSearchMessage" class="form-text"></div>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Body" class="form-label"></label>
+    <textarea asp-for="Body" class="form-control" rows="5"></textarea>
+    <span asp-validation-for="Body" class="text-danger"></span>
+</div>
+
+<div id="wordDetails">
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="SourceTitle" class="form-label"></label>
+            <input asp-for="SourceTitle" class="form-control" />
+            <span asp-validation-for="SourceTitle" class="text-danger"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="Author" class="form-label"></label>
+            <input asp-for="Author" class="form-control" />
+            <span asp-validation-for="Author" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="Speaker" class="form-label"></label>
+            <input asp-for="Speaker" class="form-control" />
+            <span asp-validation-for="Speaker" class="text-danger"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="Place" class="form-label"></label>
+            <input asp-for="Place" class="form-control" />
+            <span asp-validation-for="Place" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="Genre" class="form-label"></label>
+            <select asp-for="Genre" asp-items="Html.GetEnumSelectList<WordGenre>()" class="form-select">
+                <option value="">未指定</option>
+            </select>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="ReferenceUrl" class="form-label"></label>
+            <input asp-for="ReferenceUrl" class="form-control" type="url" />
+            <span asp-validation-for="ReferenceUrl" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Comment" class="form-label"></label>
+        <textarea asp-for="Comment" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Comment" class="text-danger"></span>
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="IsPublic" class="form-check-input" />
+        <label asp-for="IsPublic" class="form-check-label"></label>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', function () {
+        var $ = window.jQuery;
+        if (!$) return;
+
+        var searchUrl = '@Url.Action("SearchItems", "Word")';
+        var itemDetailsBaseUrl = '@Url.Action("Details", "Item")';
+        var mediaTypeToWordGenre = {
+            1: '1',
+            2: '4',
+            3: '2',
+            4: '3'
+        };
+        var searchTimer = null;
+        var activeRequest = null;
+
+        var $itemId = $('#ItemId');
+        var $selected = $('#wordItemSelected');
+        var $selectedLink = $('#wordItemSelectedLink');
+        var $selectedTitle = $('#wordItemSelectedTitle');
+        var $selectedCreator = $('#wordItemSelectedCreator');
+        var $search = $('#wordItemSearch');
+        var $keyword = $('#wordItemSearchKeyword');
+        var $results = $('#wordItemSearchResults');
+        var $message = $('#wordItemSearchMessage');
+        var $sourceTitle = $('#SourceTitle');
+        var $author = $('#Author');
+        var $genre = $('#Genre');
+
+        function showSearch() {
+            $search.removeClass('d-none');
+            $keyword.trigger('focus');
+        }
+
+        function hideSearch() {
+            $search.addClass('d-none');
+            $results.empty().addClass('d-none');
+            $message.text('');
+            $keyword.val('');
+        }
+
+        function showSelected(item) {
+            var id = item.id || $itemId.val();
+            var title = item.title || ('ID: ' + id);
+            var creator = item.creator ? ' / ' + item.creator : '';
+
+            $itemId.val(id);
+            $selectedTitle.text(title);
+            $selectedCreator.text(creator);
+            $selectedLink.attr('href', itemDetailsBaseUrl + '/' + id);
+            $selected.removeClass('d-none');
+            hideSearch();
+        }
+
+        function applyItemToFields(item) {
+            if (!$.trim($sourceTitle.val())) {
+                $sourceTitle.val(item.title || '');
+            }
+            if (!$.trim($author.val())) {
+                $author.val(item.creator || '');
+            }
+            if (!$genre.val()) {
+                $genre.val(mediaTypeToWordGenre[item.mediaType] || '99');
+            }
+        }
+
+        function renderResults(items) {
+            $results.empty();
+            if (!items.length) {
+                $results.addClass('d-none');
+                $message.text('一致する所蔵品はありません。');
+                return;
+            }
+
+            items.forEach(function (item) {
+                var $button = $('<button type="button" class="list-group-item list-group-item-action"></button>');
+                $('<div class="fw-semibold"></div>').text(item.title).appendTo($button);
+                if (item.creator) {
+                    $('<div class="small text-muted"></div>').text(item.creator).appendTo($button);
+                }
+                $button.on('click', function () {
+                    showSelected(item);
+                    applyItemToFields(item);
+                });
+                $results.append($button);
+            });
+
+            $message.text('');
+            $results.removeClass('d-none');
+        }
+
+        function searchItems() {
+            var keyword = $.trim($keyword.val());
+            if (activeRequest) activeRequest.abort();
+            if (!keyword) {
+                $results.empty().addClass('d-none');
+                $message.text('');
+                return;
+            }
+
+            $message.text('検索中...');
+            var request = $.get(searchUrl, { keyword: keyword });
+            activeRequest = request;
+            request
+                .done(renderResults)
+                .fail(function (_, status) {
+                    if (status !== 'abort') {
+                        $results.empty().addClass('d-none');
+                        $message.text('所蔵品を検索できませんでした。');
+                    }
+                })
+                .always(function () {
+                    if (activeRequest === request) {
+                        activeRequest = null;
+                    }
+                });
+        }
+
+        $keyword.on('input', function () {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(searchItems, 300);
+        });
+
+        $('#wordItemChangeButton').on('click', showSearch);
+        $('#wordItemClearButton').on('click', function () {
+            $itemId.val('');
+            $selected.addClass('d-none');
+            showSearch();
+        });
+    });
+</script>

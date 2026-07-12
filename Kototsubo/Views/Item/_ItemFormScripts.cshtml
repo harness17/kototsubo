@@ -1,0 +1,201 @@
+<partial name="_ValidationScriptsPartial" />
+<script>
+    // MediaType に応じてラベルとフィールドの表示/非表示を切り替える
+    $(function () {
+        var labels = {
+            1: { creator: '著者', publisher: '出版社' },
+            2: { creator: '開発者', publisher: 'パブリッシャー' },
+            3: { creator: '監督', publisher: 'スタジオ' },
+            4: { creator: 'アーティスト', publisher: 'レーベル' }
+        };
+        function updateFields() {
+            var mt = parseInt($('#mediaTypeSelect').val()) || 1;
+            var l = labels[mt] || labels[1];
+            $('#creatorLabel').text(l.creator);
+            $('#publisherLabel').text(l.publisher);
+            // Book
+            $('#isbnGroup').toggle(mt === 1);
+            $('#pageCountGroup').toggle(mt === 1);
+            // Game/Movie/Music
+            $('#janGroup').toggle(mt !== 1);
+            $('#steamAppIdGroup').toggle(mt === 2);
+            $('#platformGroup').toggle(mt === 2);
+            $('#formatGroup').toggle(mt === 3 || mt === 4);
+            $('#discCountGroup').toggle(mt === 3 || mt === 4);
+            $('#runtimeGroup').toggle(mt === 3);
+        }
+        $('#mediaTypeSelect').on('change', updateFields);
+        updateFields();
+
+        // ISBN検索結果をフォームに反映する共通関数
+        function applyLookupResult(data, asin) {
+            $('#Title').val(data.title || '');
+            $('#Creator').val(data.creator || '');
+            $('#Publisher').val(data.publisher || '');
+            $('#ReleaseDate').val(data.releaseDate ? data.releaseDate.substring(0, 10) : '');
+            $('#ISBN').val(data.isbn || '');
+            $('#PageCount').val(data.pageCount || '');
+            if (asin) $('#ASIN').val(asin);
+            // カバー画像URLの設定とプレビュー更新
+            var coverUrl = data.coverImageUrl || '';
+            $('#CoverImageUrl').val(coverUrl);
+            if (coverUrl) {
+                $('#coverPreview').attr('src', coverUrl).show();
+            } else {
+                $('#coverPreview').hide();
+            }
+            $('#mediaTypeSelect').val('1').trigger('change');
+        }
+
+        var isbnCandidates = [];
+        var isbnCandidateAsin = null;
+
+        function clearIsbnCandidates() {
+            isbnCandidates = [];
+            isbnCandidateAsin = null;
+            $('#isbnCandidateList').empty();
+            $('#isbnCandidateCount').text('');
+            $('#isbnCandidatePanel').addClass('d-none');
+        }
+
+        function updateIsbnCandidateSelection() {
+            $('.isbn-candidate-option').each(function () {
+                var selected = $(this).find('input[name="isbnCandidate"]').prop('checked');
+                $(this)
+                    .toggleClass('border-primary bg-primary-subtle shadow-sm', selected)
+                    .toggleClass('border-secondary-subtle bg-body', !selected);
+            });
+        }
+
+        function renderIsbnCandidates(candidates, asin) {
+            clearIsbnCandidates();
+            isbnCandidates = candidates || [];
+            isbnCandidateAsin = asin || null;
+
+            var list = $('#isbnCandidateList');
+            isbnCandidates.forEach(function (candidate, index) {
+                var id = 'isbnCandidate_' + index;
+                var column = $('<div>', { class: 'col-12 col-xl-6' });
+                var option = $('<label>', {
+                    class: 'isbn-candidate-option border rounded-3 p-3 d-flex gap-3 h-100 bg-body',
+                    for: id
+                });
+                var radio = $('<input>', {
+                    class: 'form-check-input flex-shrink-0 mt-1',
+                    type: 'radio',
+                    name: 'isbnCandidate',
+                    id: id,
+                    value: index
+                });
+                if (index === 0) radio.prop('checked', true);
+
+                var details = $('<span>', { class: 'd-block min-w-0' });
+                $('<strong>', { class: 'd-block text-break mb-1' })
+                    .text(candidate.title || 'タイトル不明')
+                    .appendTo(details);
+                $('<span>', { class: 'd-block small text-secondary text-break' })
+                    .text(candidate.creator || '著者不明')
+                    .appendTo(details);
+                $('<span>', { class: 'd-block small text-secondary text-break' })
+                    .text(
+                        (candidate.publisher || '出版社不明') +
+                        ' / ' +
+                        (candidate.releaseDate
+                            ? candidate.releaseDate.substring(0, 10)
+                            : '出版日不明'))
+                    .appendTo(details);
+
+                option.append(radio, details);
+                column.append(option);
+                list.append(column);
+            });
+
+            $('#isbnCandidateCount').text(isbnCandidates.length + '件');
+            $('#isbnCandidatePanel').removeClass('d-none');
+            updateIsbnCandidateSelection();
+        }
+
+        function showIsbnMessage(text, isError) {
+            $('#lookupIsbnMessage')
+                .text(text)
+                .toggleClass('text-danger', isError)
+                .toggleClass('text-success', !isError)
+                .removeClass('d-none');
+        }
+
+        $('#lookupIsbnButton').on('click', function () {
+            var button = $(this);
+            var spinner = $('#lookupIsbnSpinner');
+            var message = $('#lookupIsbnMessage');
+            var isbn = $('#ISBN').val();
+
+            message
+                .addClass('d-none')
+                .removeClass('text-danger text-success')
+                .text('');
+            clearIsbnCandidates();
+            button.prop('disabled', true);
+            spinner.removeClass('d-none');
+
+            $.get('@Url.Action("LookupIsbn", "Item")', { isbn: isbn })
+                .done(function (response) {
+                    if (!response.success) {
+                        showIsbnMessage(response.message, true);
+                        return;
+                    }
+                    renderIsbnCandidates(response.candidates, response.asin);
+                })
+                .fail(function () {
+                    showIsbnMessage('書籍情報を取得できませんでした', true);
+                })
+                .always(function () {
+                    button.prop('disabled', false);
+                    spinner.addClass('d-none');
+                });
+        });
+
+        $('#applyIsbnCandidateButton').on('click', function () {
+            var selected = $('input[name="isbnCandidate"]:checked').val();
+            var index = parseInt(selected, 10);
+            if (!Number.isInteger(index) || !isbnCandidates[index]) {
+                showIsbnMessage('反映する書誌を選択してください', true);
+                return;
+            }
+
+            applyLookupResult(isbnCandidates[index], isbnCandidateAsin);
+            showIsbnMessage('選択した書誌をフォームへ反映しました', false);
+        });
+
+        $('#isbnCandidateList').on(
+            'change',
+            'input[name="isbnCandidate"]',
+            updateIsbnCandidateSelection);
+
+        $('#lookupAsinButton').on('click', function () {
+            var button = $(this);
+            var spinner = $('#lookupAsinSpinner');
+            var message = $('#lookupAsinMessage');
+            var asin = $('#ASIN').val();
+
+            message.addClass('d-none').text('');
+            button.prop('disabled', true);
+            spinner.removeClass('d-none');
+
+            $.get('@Url.Action("LookupAsin", "Item")', { asin: asin })
+                .done(function (response) {
+                    if (!response.success) {
+                        message.text(response.message).removeClass('d-none');
+                        return;
+                    }
+                    applyLookupResult(response.data, response.asin);
+                })
+                .fail(function () {
+                    message.text('書籍情報を取得できませんでした').removeClass('d-none');
+                })
+                .always(function () {
+                    button.prop('disabled', false);
+                    spinner.addClass('d-none');
+                });
+        });
+    });
+</script>

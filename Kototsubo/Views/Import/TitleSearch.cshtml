@@ -1,0 +1,308 @@
+@model TitleSearchViewModel
+@using Site.Services
+
+@{
+    ViewData["Title"] = "国立国会図書館から検索";
+    const int pageSize = 20;
+    var totalPages = Model.Summary != null && Model.Summary.TotalRecords > 0
+        ? (int)Math.Ceiling((double)Model.Summary.TotalRecords / pageSize)
+        : 0;
+    var currentPage = Model.Page;
+
+    // ページャリンク・登録後の戻りに付与する検索条件（指定された項目のみ）。
+    var routeValues = new Dictionary<string, string> { ["Searched"] = "true" };
+    if (!string.IsNullOrWhiteSpace(Model.Title)) routeValues["Title"] = Model.Title;
+    if (!string.IsNullOrWhiteSpace(Model.Creator)) routeValues["Creator"] = Model.Creator;
+    if (!string.IsNullOrWhiteSpace(Model.Publisher)) routeValues["Publisher"] = Model.Publisher;
+    if (Model.YearFrom.HasValue) routeValues["YearFrom"] = Model.YearFrom.Value.ToString();
+    if (Model.YearTo.HasValue) routeValues["YearTo"] = Model.YearTo.Value.ToString();
+    if (Model.SortOrder != NdlSearchSortOrder.Default) routeValues["SortOrder"] = Model.SortOrder.ToString();
+
+    var pager = new PagerViewModel
+    {
+        CurrentPage = currentPage,
+        TotalPages = totalPages,
+        Action = "TitleSearch",
+        AriaLabel = "国立国会図書館検索結果ページング",
+        RouteValues = routeValues
+    };
+
+    // ページ跨ぎの選択保持に使う検索条件キー。
+    // URL の query string は検索フォーム送信時（空項目を含む）とページャ遷移時
+    // （非空項目のみ）で表現が異なり一致しないため、page を含まない正規化済みの
+    // routeValues から安定キーを生成してクライアントへ渡す。
+    var conditionKey = string.Join("&", routeValues
+        .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+        .Select(kv => $"{kv.Key}={kv.Value}"));
+}
+
+<h1 class="h3 mb-3">国立国会図書館から検索</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <p>国立国会図書館の書誌情報を、タイトル・著者・出版社・出版年のいずれか1つ以上で検索できます。</p>
+        <form asp-action="TitleSearch" method="get"
+              data-loading-text="国立国会図書館を検索中…">
+            <input type="hidden" name="Searched" value="true" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label asp-for="Title" class="form-label"></label>
+                    <input asp-for="Title" class="form-control"
+                           placeholder="例: 吾輩は猫である" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Creator" class="form-label"></label>
+                    <input asp-for="Creator" class="form-control"
+                           placeholder="例: 夏目漱石" />
+                    <span asp-validation-for="Creator" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Publisher" class="form-label"></label>
+                    <input asp-for="Publisher" class="form-control"
+                           placeholder="例: 岩波書店" />
+                    <span asp-validation-for="Publisher" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="YearFrom" class="form-label"></label>
+                    <input asp-for="YearFrom" type="number" class="form-control"
+                           placeholder="例: 1950" min="1" max="9999" />
+                    <span asp-validation-for="YearFrom" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="YearTo" class="form-label"></label>
+                    <input asp-for="YearTo" type="number" class="form-control"
+                           placeholder="例: 2020" min="1" max="9999" />
+                    <span asp-validation-for="YearTo" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="SortOrder" class="form-label"></label>
+                    <select asp-for="SortOrder" class="form-select">
+                        <option value="@NdlSearchSortOrder.Default">標準</option>
+                        <option value="@NdlSearchSortOrder.PublicationDateDescending">出版年の新しい順</option>
+                        <option value="@NdlSearchSortOrder.PublicationDateAscending">出版年の古い順</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>検索
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.HasSearched)
+{
+    if (Model.Results.Count == 0)
+    {
+        if (Model.SearchFailed)
+        {
+            <div class="alert alert-warning">検索に失敗しました。しばらくしてから再度お試しください。</div>
+        }
+        else
+        {
+            <div class="alert alert-warning">該当する書籍が見つかりませんでした。</div>
+        }
+    }
+    else
+    {
+        <div class="alert alert-info">
+            @(Model.Summary?.Summary ?? $"{Model.TotalResults} 件")
+        </div>
+        @if (Model.ResultsLimited)
+        {
+            <div class="alert alert-warning">
+                国立国会図書館APIの取得上限により、検索結果の先頭500件を出版年順に並べています。
+                条件を追加して検索結果を絞り込んでください。
+            </div>
+        }
+
+        <partial name="_Pager" model="pager" />
+
+        <form id="titleSearchForm" asp-action="TitleSearchConfirm" method="post"
+              data-loading-text="選択した本を登録中…">
+            @* 登録後の「戻る」で検索条件・ページを再現するため hidden で保持する *@
+            <input type="hidden" name="Title" value="@Model.Title" />
+            <input type="hidden" name="Creator" value="@Model.Creator" />
+            <input type="hidden" name="Publisher" value="@Model.Publisher" />
+            <input type="hidden" name="YearFrom" value="@Model.YearFrom" />
+            <input type="hidden" name="YearTo" value="@Model.YearTo" />
+            <input type="hidden" name="SortOrder" value="@Model.SortOrder" />
+            <input type="hidden" name="Page" value="@Model.Page" />
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:3rem">
+                                <input type="checkbox" class="form-check-input" id="selectAll" />
+                            </th>
+                            <th>タイトル</th>
+                            <th>著者</th>
+                            <th>出版社</th>
+                            <th>ISBN</th>
+                            <th>出版年</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < Model.Results.Count; i++)
+                        {
+                            var row = Model.Results[i];
+                            var hasIsbn = !string.IsNullOrWhiteSpace(row.ISBN);
+                            // 既に登録済みの本は選択不可（非活性）にする。ISBNがない本は
+                            // 既存蔵品との一致判定ができないため常に選択可能にする。
+                            var canSelect = !row.IsAlreadyRegistered;
+                            // ISBN なし行はページ内の位置から合成キーを作る。ISBN なし書籍は
+                            // 外部照会せず検索時点の情報をそのまま登録候補にするため、
+                            // このキーはサーバー再照会には使わずクライアント側の選択状態管理にのみ使う。
+                            var rowKey = hasIsbn ? row.ISBN! : $"noisbn:{Model.Page}:{i}";
+                            <tr class="@(!canSelect ? "table-secondary" : "")">
+                                <td>
+                                    @if (canSelect)
+                                    {
+                                        <input class="form-check-input row-check @(hasIsbn ? "isbn-check" : "noisbn-check")"
+                                               type="checkbox"
+                                               name="@(hasIsbn ? "selectedIsbns" : "selectedNoIsbn")"
+                                               value="@rowKey"
+                                               data-title="@row.Title"
+                                               data-creator="@row.Creator"
+                                               data-publisher="@row.Publisher"
+                                               data-publication-date="@row.PublicationDate" />
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-info" title="既に蔵品として登録済みです">登録済み</span>
+                                    }
+                                </td>
+                                <td>@row.Title</td>
+                                <td>@row.Creator</td>
+                                <td>@row.Publisher</td>
+                                <td>
+                                    @if (hasIsbn)
+                                    {
+                                        <code>@row.ISBN</code>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">なし</span>
+                                    }
+                                </td>
+                                <td>@row.PublicationDate</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-file-import me-1"></i>選択した本を登録
+            </button>
+            <span id="selectedCount" class="ms-2 text-muted"></span>
+            <a asp-action="TitleSearch" class="btn btn-outline-secondary">クリア</a>
+        </form>
+
+        <partial name="_Pager" model="pager" />
+    }
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        $(function () {
+            // ページをまたいで選択した ISBN を sessionStorage で保持する。
+            // 検索条件（page を除く）が変わったら選択をリセットする。
+            // 条件キーはサーバー側の正規化済み条件（page 非依存）を使う。URL の
+            // query string はフォーム送信時とページャ遷移時で表現が異なり、
+            // ページ跨ぎで一致しないため使わない。
+            var STORAGE_KEY = 'kototsubo.titleSearch.selected.v2';
+            var condKey = @Json.Serialize(conditionKey);
+
+            function loadState() {
+                try {
+                    var data = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+                    if (data && data.cond === condKey && data.books) return data;
+                } catch (e) { /* 破損時は初期化 */ }
+                return { cond: condKey, books: {} };
+            }
+            function saveState() {
+                try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+            }
+            function selectedCount() { return Object.keys(state.books).length; }
+            function updateCountLabel() {
+                var n = selectedCount();
+                $('#selectedCount').text(n > 0 ? '（他ページ含め ' + n + ' 件選択中）' : '');
+            }
+
+            var state = loadState();
+
+            function bookFromCheckbox(checkbox) {
+                var hasIsbn = checkbox.classList.contains('isbn-check');
+                return {
+                    Key: checkbox.value,
+                    HasIsbn: hasIsbn,
+                    ISBN: hasIsbn ? checkbox.value : null,
+                    Title: checkbox.dataset.title || null,
+                    Creator: checkbox.dataset.creator || null,
+                    Publisher: checkbox.dataset.publisher || null,
+                    PublicationDate: checkbox.dataset.publicationDate || null
+                };
+            }
+
+            // 現在ページのチェックボックスを復元し、変更を保存する。
+            // ISBN あり・なし共通で row-check クラスを持つ（isbn-check / noisbn-check で種別を区別）。
+            $('.row-check').each(function () {
+                if (state.books[this.value]) this.checked = true;
+                $(this).on('change', function () {
+                    if (this.checked) state.books[this.value] = bookFromCheckbox(this);
+                    else delete state.books[this.value];
+                    saveState();
+                    updateCountLabel();
+                });
+            });
+
+            // 全選択チェックボックス。
+            $('#selectAll').on('change', function () {
+                var checked = this.checked;
+                $('.row-check').each(function () {
+                    this.checked = checked;
+                    if (checked) state.books[this.value] = bookFromCheckbox(this);
+                    else delete state.books[this.value];
+                });
+                saveState();
+                updateCountLabel();
+            });
+
+            // 登録時、現在ページにないチェック済み行を hidden で追加送信する。
+            // 重複はサーバー側で除外される。選択状態はプレビューから戻れるよう保持し、
+            // 登録完了画面（IsbnResult）でクリアする。
+            $('#titleSearchForm').on('submit', function () {
+                var form = this;
+                var onPage = {};
+                $('.row-check:checked', form).each(function () { onPage[this.value] = true; });
+                Object.keys(state.books).forEach(function (key) {
+                    if (onPage[key]) return;
+                    var book = state.books[key];
+                    $('<input>', {
+                        type: 'hidden',
+                        name: book.HasIsbn ? 'selectedIsbns' : 'selectedNoIsbn',
+                        value: key
+                    }).appendTo(form);
+                });
+                var allBooks = Object.values(state.books);
+                $('<input>', {
+                    type: 'hidden',
+                    name: 'selectedRecordsJson',
+                    value: JSON.stringify(allBooks.filter(function (b) { return b.HasIsbn; }))
+                }).appendTo(form);
+                $('<input>', {
+                    type: 'hidden',
+                    name: 'noIsbnRecordsJson',
+                    value: JSON.stringify(allBooks.filter(function (b) { return !b.HasIsbn; }))
+                }).appendTo(form);
+            });
+
+            updateCountLabel();
+        });
+    </script>
+}

@@ -1,0 +1,48 @@
+@model IsbnImportResultViewModel
+
+@{
+    var isTitleSearch = Model.ContinueAction == "TitleSearch";
+    ViewData["Title"] = isTitleSearch
+        ? "国立国会図書館から検索 登録結果"
+        : "ISBN 一括登録結果";
+}
+
+<h1 class="h3 mb-3">@ViewData["Title"]</h1>
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">登録件数</dt>
+            <dd class="col-sm-9">@Model.ImportedCount 件</dd>
+            <dt class="col-sm-3">スキップ件数</dt>
+            <dd class="col-sm-9">@Model.SkippedCount 件</dd>
+        </dl>
+
+        @if (Model.Errors.Count > 0)
+        {
+            <div class="alert alert-warning">
+                <ul class="mb-0">
+                    @foreach (var error in Model.Errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <a asp-controller="Item" asp-action="Index" class="btn btn-primary">蔵品一覧へ</a>
+        <a asp-action="@Model.ContinueAction" class="btn btn-outline-secondary">
+            @(isTitleSearch ? "さらに追加" : "続けて登録")
+        </a>
+    </div>
+</div>
+
+@if (isTitleSearch)
+{
+    @section Scripts {
+        <script>
+            @* TitleSearch.cshtml の STORAGE_KEY と一致させる（ImportViewContractTests で検証） *@
+            try { sessionStorage.removeItem('kototsubo.titleSearch.selected.v2'); } catch (e) {}
+        </script>
+    }
+}

@@ -1,0 +1,120 @@
+@model IsbnImportPreviewViewModel
+
+@{
+    ViewData["Title"] = "ISBN 一括登録プレビュー";
+    var candidateCount = Model.Rows.Count(x => x.Book != null && !x.IsDuplicate && x.Error == null);
+}
+
+<h1 class="h3 mb-3">登録内容の確認</h1>
+
+<div class="alert alert-info">
+    登録候補 @candidateCount 件、スキップ @(Model.Rows.Count - candidateCount) 件です。
+</div>
+
+<form asp-action="IsbnConfirm" method="post" data-loading-text="一括登録中…">
+    <input asp-for="TempFilePath" type="hidden" />
+    <input asp-for="BackAction" type="hidden" />
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead>
+                <tr>
+                    <th>登録</th>
+                    <th>書誌候補</th>
+                    <th>ISBN</th>
+                    <th>Amazon照合</th>
+                    <th>状態</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    var canImport = row.Book != null && !row.IsDuplicate && row.Error == null;
+                    <tr class="@(!canImport ? "table-secondary" : "")">
+                        <td>
+                            @if (canImport)
+                            {
+                                <input class="form-check-input" type="checkbox"
+                                       name="SelectedKeys" value="@row.Key" checked />
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">スキップ</span>
+                            }
+                        </td>
+                        <td>
+                            @if (canImport)
+                            {
+                                @for (var candidateIndex = 0; candidateIndex < row.Candidates.Count; candidateIndex++)
+                                {
+                                    var candidate = row.Candidates[candidateIndex];
+                                    <label class="d-block border rounded p-2 mb-2">
+                                        <input class="form-check-input me-1"
+                                               type="radio"
+                                               name="SelectedCandidateIndexes[@row.Key]"
+                                               value="@candidateIndex"
+                                               checked="@(Model.SelectedCandidateIndexes.GetValueOrDefault(row.Key) == candidateIndex ? "checked" : null)" />
+                                        <strong>@candidate.Title</strong>
+                                        <span class="badge bg-secondary ms-1">候補 @(candidateIndex + 1)</span>
+                                        <span class="d-block small text-muted">@candidate.Creator</span>
+                                        <span class="d-block small text-muted">@candidate.Publisher / @candidate.ReleaseDate?.ToString("yyyy-MM-dd")</span>
+                                    </label>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">選択候補なし</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.Book?.ISBN != null)
+                            {
+                                <code>@row.Book.ISBN</code>
+                            }
+                            else if (canImport)
+                            {
+                                <span class="text-muted">なし</span>
+                            }
+                            else
+                            {
+                                <code>@row.Input</code>
+                            }
+                        </td>
+                        <td>
+                            @if (row.AmazonAsinCandidate != null)
+                            {
+                                <a href="https://www.amazon.co.jp/s?k=@row.Book?.ISBN"
+                                   target="_blank" rel="noopener noreferrer">
+                                    @row.AmazonAsinCandidate
+                                </a>
+                                @if (row.HasLocalAmazonMatch)
+                                {
+                                    <span class="badge bg-success ms-1">DB一致</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary ms-1">候補</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">対象外</span>
+                            }
+                        </td>
+                        <td>@(row.Error ?? (row.IsDuplicate ? "登録済みまたは入力内重複" : "登録可能"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn btn-primary" disabled="@(candidateCount == 0)">
+        <i class="fas fa-file-import me-1"></i>選択した蔵品を登録
+    </button>
+    @if (!string.IsNullOrEmpty(Model.BackUrl))
+    {
+        <a href="@Model.BackUrl" class="btn btn-outline-secondary">戻る</a>
+    }
+    else
+    {
+        <a asp-action="@Model.BackAction" class="btn btn-outline-secondary">戻る</a>
+    }
+</form>

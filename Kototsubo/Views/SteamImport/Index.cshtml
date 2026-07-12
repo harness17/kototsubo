@@ -1,0 +1,33 @@
+@model SteamImportViewModel
+
+@{
+    ViewData["Title"] = "Steam 一括登録";
+}
+
+<h1 class="h3 mb-3">Steam 一括登録</h1>
+
+<div class="card">
+    <div class="card-body">
+        <p>Steam Titlelist Getter が出力した JSON ファイルを選択してください。</p>
+        <form asp-action="Index" method="post" enctype="multipart/form-data"
+              data-loading-text="Steam JSONを解析中…">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="mb-3">
+                <label asp-for="File" class="form-label"></label>
+                <input asp-for="File" class="form-control"
+                       accept=".json,application/json" />
+                <span asp-validation-for="File" class="text-danger"></span>
+                <div class="form-text">
+                    Steam Titlelist Getter の JSON、最大5MB。
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-list-check me-1"></i>Steam ゲームを確認
+            </button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

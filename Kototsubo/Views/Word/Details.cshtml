@@ -1,0 +1,79 @@
+@model WordViewModel
+@{
+    ViewData["Title"] = "言葉の詳細";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-quote-left me-2"></i>言葉の詳細</h2>
+    <div>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
+            <i class="fas fa-pen me-1"></i>編集
+        </a>
+        <a asp-action="Index" asp-route-itemId="@Model.ItemId"
+           class="btn btn-outline-secondary ms-1">一覧へ</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <blockquote class="blockquote mb-0">
+            <p style="white-space: pre-wrap;">@Model.Body</p>
+        </blockquote>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">出典・記録</div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">出典元タイトル</dt>
+            <dd class="col-sm-9">@(Model.SourceTitle ?? "—")</dd>
+            <dt class="col-sm-3">作者</dt>
+            <dd class="col-sm-9">@(Model.Author ?? "—")</dd>
+            <dt class="col-sm-3">発言者</dt>
+            <dd class="col-sm-9">@(Model.Speaker ?? "—")</dd>
+            <dt class="col-sm-3">場所</dt>
+            <dd class="col-sm-9">@(Model.Place ?? "—")</dd>
+            <dt class="col-sm-3">ジャンル</dt>
+            <dd class="col-sm-9">@(Model.Genre.HasValue ? Html.DisplayFor(m => m.Genre) : "—")</dd>
+            <dt class="col-sm-3">コメント</dt>
+            <dd class="col-sm-9" style="white-space: pre-wrap;">@(Model.Comment ?? "—")</dd>
+            <dt class="col-sm-3">参考URL</dt>
+            <dd class="col-sm-9">
+                @if (!string.IsNullOrWhiteSpace(Model.ReferenceUrl))
+                {
+                    <a href="@Model.ReferenceUrl" target="_blank" rel="noopener noreferrer">@Model.ReferenceUrl</a>
+                }
+                else
+                {
+                    <text>—</text>
+                }
+            </dd>
+            <dt class="col-sm-3">関連する所蔵品</dt>
+            <dd class="col-sm-9">
+                @if (Model.ItemId.HasValue)
+                {
+                    <a asp-controller="Item" asp-action="Details" asp-route-id="@Model.ItemId">
+                        @(Model.ItemTitle ?? $"ID: {Model.ItemId}")
+                    </a>
+                }
+                else
+                {
+                    <text>—</text>
+                }
+            </dd>
+            <dt class="col-sm-3">公開設定</dt>
+            <dd class="col-sm-9">@(Model.IsPublic ? "公開" : "非公開")</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between">
+    <small class="text-muted">
+        登録日: @Model.CreateDate.ToString("yyyy/MM/dd HH:mm")
+        / 更新日: @Model.UpdateDate.ToString("yyyy/MM/dd HH:mm")
+    </small>
+    <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">
+        <i class="fas fa-trash me-1"></i>削除
+    </a>
+</div>
