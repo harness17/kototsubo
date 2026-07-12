@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <Configurations>Debug;Release;Azure</Configurations>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Site</RootNamespace>
@@ -11,6 +12,13 @@
     <RazorCompileOnBuild Condition="'$(Configuration)' == 'Debug'">false</RazorCompileOnBuild>
     <RazorCompileOnPublish Condition="'$(Configuration)' == 'Debug'">false</RazorCompileOnPublish>
     <UseRazorSourceGenerator Condition="'$(Configuration)' == 'Debug'">false</UseRazorSourceGenerator>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Azure'">
+    <!-- Azure 配置用構成は Release と同じ最適化を使い、配置先や秘密情報は発行プロファイル側で管理する。 -->
+    <Optimize>true</Optimize>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+    <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CommonLibrary\CommonLibrary.csproj" />
@@ -30,6 +38,10 @@
   </ItemGroup>
   <ItemGroup>
     <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <!-- ローカル用 Production 設定を Azure 発行物へ混入させない。Azure の実値は App Service 環境変数で与える。 -->
+    <Content Update="appsettings.Production.json"
+             Condition="'$(Configuration)' == 'Azure'"
+             CopyToPublishDirectory="Never" />
     <None Update="App_Data\**\.gitkeep"
           CopyToOutputDirectory="Never"
           CopyToPublishDirectory="Never" />

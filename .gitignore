@@ -9,6 +9,7 @@ obj/
 ## Development settings
 appsettings.Development.json
 appsettings.Production.json
+appsettings.Azure.json
 appsettings.*.local.json
 
 ## IDE

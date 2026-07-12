@@ -154,13 +154,16 @@ EntityBase.HttpContextAccessor = accessor;
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 Dev.CommonLibrary.Common.Logger.GetLogger().SetLogger(loggerFactory.CreateLogger("App"));
 
-// DB マイグレーション適用・ロール作成
+// DB マイグレーション適用・ロールおよび任意の初回ユーザー作成
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var sp = scope.ServiceProvider;
     var context = sp.GetRequiredService<DBContext>();
     await context.Database.MigrateAsync();
-    await SeedAsync(sp);
+    await StartupSeeder.SeedAsync(
+        sp.GetRequiredService<RoleManager<ApplicationRole>>(),
+        sp.GetRequiredService<UserManager<ApplicationUser>>(),
+        builder.Configuration);
 }
 
 if (app.Environment.IsDevelopment())
@@ -200,21 +203,3 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
-
-/// <summary>
-/// 初期ロール・ユーザーを作成する。既に存在する場合はスキップされる。
-/// </summary>
-static async Task SeedAsync(IServiceProvider sp)
-{
-    var roleManager = sp.GetRequiredService<RoleManager<ApplicationRole>>();
-
-    // ロール作成
-    if (!await roleManager.RoleExistsAsync(ApplicationRoleType.Admin.ToString()))
-        await roleManager.CreateAsync(new ApplicationRole { Id = "1", Name = ApplicationRoleType.Admin.ToString() });
-
-    if (!await roleManager.RoleExistsAsync(ApplicationRoleType.Member.ToString()))
-        await roleManager.CreateAsync(new ApplicationRole { Id = "2", Name = ApplicationRoleType.Member.ToString() });
-
-    // ユーザーは運用環境で明示的に作成する。既知の固定資格情報を自動生成すると、
-    // 新規デプロイ直後に第三者が管理者としてログインできるため、ここでは作成しない。
-}

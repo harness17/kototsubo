@@ -1,4 +1,9 @@
 <Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <BuildType Name="Azure" />
+  </Configurations>
   <Project Path="Kototsubo/Kototsubo.csproj" />
   <Project Path="CommonLibrary/CommonLibrary.csproj" />
   <Project Path="Tests/Tests.csproj" />
