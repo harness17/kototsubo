@@ -30,7 +30,15 @@ namespace Site.Services
 
         public bool IsConfigured => !string.IsNullOrWhiteSpace(_applicationId);
 
-        public async Task<JsonElement?> SearchByJanAsync(string endpointPath, string jan)
+        /// <summary>楽天ブックス書籍検索 API 用。isbn パラメータで検索する。</summary>
+        public Task<JsonElement?> SearchByIsbnAsync(string endpointPath, string isbn)
+            => SearchCoreAsync(endpointPath, "isbn", isbn);
+
+        public Task<JsonElement?> SearchByJanAsync(string endpointPath, string jan)
+            => SearchCoreAsync(endpointPath, "jan", jan);
+
+        private async Task<JsonElement?> SearchCoreAsync(
+            string endpointPath, string parameterName, string parameterValue)
         {
             if (!IsConfigured)
             {
@@ -45,7 +53,7 @@ namespace Site.Services
                     (!string.IsNullOrWhiteSpace(_accessKey)
                         ? $"&accessKey={Uri.EscapeDataString(_accessKey!)}"
                         : string.Empty) +
-                    $"&formatVersion=2&jan={Uri.EscapeDataString(jan)}";
+                    $"&formatVersion=2&{parameterName}={Uri.EscapeDataString(parameterValue)}";
 
                 for (var attempt = 0; attempt <= MaxRetries; attempt++)
                 {
@@ -53,8 +61,8 @@ namespace Site.Services
                     {
                         var backoffMs = (int)Math.Pow(2, attempt) * 500;
                         _logger.LogInformation(
-                            "Rakuten Books API retry {Attempt}/{MaxRetries} after {BackoffMs}ms for JAN {Jan}.",
-                            attempt, MaxRetries, backoffMs, jan);
+                            "Rakuten Books API retry {Attempt}/{MaxRetries} after {BackoffMs}ms for {ParameterValue}.",
+                            attempt, MaxRetries, backoffMs, parameterValue);
                         await Task.Delay(backoffMs);
                     }
 

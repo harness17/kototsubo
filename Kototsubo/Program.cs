@@ -136,6 +136,7 @@ if (!string.IsNullOrWhiteSpace(rakutenApplicationId))
     builder.Services.AddScoped<IGameLookupService, RakutenGameLookupService>();
     builder.Services.AddScoped<ICdLookupService, RakutenCdLookupService>();
     builder.Services.AddScoped<IDvdLookupService, RakutenDvdLookupService>();
+    builder.Services.AddScoped<RakutenBookLookupService>();
 }
 else
 {
