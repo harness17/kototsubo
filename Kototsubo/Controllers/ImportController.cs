@@ -375,6 +375,13 @@ namespace Site.Controllers
                         inputs[i],
                         firstValidationError,
                         lookup.NdlLookupFailed);
+                    row.NdlLookupFailed = lookup.NdlLookupFailed;
+                    // NDL一時障害で失敗した有効ISBNを記録し、再取得で再照会できるようにする
+                    if (lookup.NdlLookupFailed &&
+                        OpenBDLookupService.NormalizeIsbn13(inputs[i]) != null)
+                    {
+                        snapshot.FailedInputs.Add(inputs[i]);
+                    }
                 }
                 else if (existingIsbns.Contains(book.ISBN) || !seenIsbns.Add(book.ISBN))
                 {
@@ -441,7 +448,7 @@ namespace Site.Controllers
                 }
             }
 
-            if (snapshot.Rows.Count == 0)
+            if (snapshot.Rows.Count == 0 && snapshot.FailedInputs.Count == 0)
                 return preview;
 
             var token = $"{Guid.NewGuid():N}.isbn.json";
@@ -571,6 +578,179 @@ namespace Site.Controllers
             }
 
             return View("IsbnResult", result);
+        }
+
+        /// <summary>
+        /// NDL取得に失敗したISBNのみを再照会し、スナップショットをマージしてプレビューを再表示する。
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RefetchPreview(string? tempFilePath, string? backUrl)
+        {
+            var errorResult = new IsbnImportResultViewModel();
+            string tempPath;
+            try
+            {
+                tempPath = ResolveTempPath(tempFilePath);
+                if (HttpContext.Session.GetString(GetIsbnSessionKey(tempFilePath!)) != "owned")
+                    throw new InvalidOperationException();
+            }
+            catch (InvalidOperationException)
+            {
+                errorResult.Errors.Add("確認データが無効です。もう一度検索してください。");
+                return View("IsbnResult", errorResult);
+            }
+
+            if (!System.IO.File.Exists(tempPath))
+            {
+                HttpContext.Session.Remove(GetIsbnSessionKey(tempFilePath!));
+                errorResult.Errors.Add("確認データの有効期限が切れました。もう一度検索してください。");
+                return View("IsbnResult", errorResult);
+            }
+
+            IsbnImportSnapshot snapshot;
+            try
+            {
+                await using var input = System.IO.File.OpenRead(tempPath);
+                snapshot = await JsonSerializer.DeserializeAsync<IsbnImportSnapshot>(input)
+                    ?? new IsbnImportSnapshot();
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "RefetchPreview: snapshot deserialization failed.");
+                errorResult.Errors.Add("確認データを読み込めませんでした。もう一度検索してください。");
+                return View("IsbnResult", errorResult);
+            }
+
+            if (snapshot.FailedInputs.Count == 0)
+            {
+                return View("IsbnPreview",
+                    BuildPreviewFromSnapshot(snapshot, tempFilePath!, backUrl));
+            }
+
+            // 失敗ISBNのみを再照会する
+            var failedInputs = snapshot.FailedInputs;
+            IReadOnlyList<BookLookupCandidates> candidateLookups;
+            try
+            {
+                candidateLookups =
+                    await _bookCandidateLookupService.LookupCandidatesByIsbnsAsync(failedInputs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "RefetchPreview: book lookup failed for all failed inputs.");
+                return View("IsbnPreview",
+                    BuildPreviewFromSnapshot(snapshot, tempFilePath!, backUrl));
+            }
+
+            var existingIsbns = snapshot.Rows
+                .Where(x => x.ISBN != null)
+                .Select(x => x.ISBN!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var dbRegisteredIsbns = _repository.GetBaseQuery()
+                .Where(x => x.ISBN != null)
+                .Select(x => x.ISBN!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var mergeResult = MergeRefetchResults(
+                failedInputs, candidateLookups, existingIsbns, dbRegisteredIsbns);
+
+            foreach (var row in mergeResult.NewRows)
+                snapshot.Rows.Add(row);
+
+            snapshot.FailedInputs = mergeResult.StillFailed;
+
+            // スナップショットを上書き保存する
+            try
+            {
+                await using var output = System.IO.File.Create(tempPath);
+                await JsonSerializer.SerializeAsync(output, snapshot);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "RefetchPreview: snapshot save failed.");
+                errorResult.Errors.Add("確認データの保存中にエラーが発生しました。");
+                return View("IsbnResult", errorResult);
+            }
+
+            return View("IsbnPreview",
+                BuildPreviewFromSnapshot(snapshot, tempFilePath!, backUrl));
+        }
+
+        /// <summary>
+        /// スナップショットからプレビュー用ViewModelを再構築する。
+        /// 再取得後のプレビュー再表示に使う。
+        /// </summary>
+        private IsbnImportPreviewViewModel BuildPreviewFromSnapshot(
+            IsbnImportSnapshot snapshot,
+            string tempFilePath,
+            string? backUrl)
+        {
+            var preview = new IsbnImportPreviewViewModel
+            {
+                TempFilePath = tempFilePath,
+                BackAction = snapshot.SourceAction,
+                BackUrl = backUrl
+            };
+
+            var dbRegisteredIsbns = _repository.GetBaseQuery()
+                .Where(x => x.ISBN != null)
+                .Select(x => x.ISBN!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var seenIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var amazonAsinCandidates = snapshot.Rows
+                .Select(x => x.AmazonAsinCandidate)
+                .Where(x => x != null)
+                .Select(x => x!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var existingAmazonAsins = _repository.GetBaseQuery()
+                .Where(x => x.ASIN != null && amazonAsinCandidates.Contains(x.ASIN))
+                .Select(x => x.ASIN!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // 成功行
+            foreach (var snapshotRow in snapshot.Rows)
+            {
+                var book = snapshotRow.Candidates.FirstOrDefault();
+                var isDuplicate = snapshotRow.ISBN != null &&
+                    (dbRegisteredIsbns.Contains(snapshotRow.ISBN) ||
+                     !seenIsbns.Add(snapshotRow.ISBN));
+
+                var row = new IsbnImportRow
+                {
+                    Input = snapshotRow.ISBN ?? snapshotRow.Key,
+                    Key = snapshotRow.Key,
+                    Book = book,
+                    Candidates = snapshotRow.Candidates,
+                    IsDuplicate = isDuplicate,
+                    AmazonAsinCandidate = snapshotRow.AmazonAsinCandidate,
+                    HasLocalAmazonMatch = snapshotRow.AmazonAsinCandidate != null &&
+                        existingAmazonAsins.Contains(snapshotRow.AmazonAsinCandidate)
+                };
+
+                if (!isDuplicate && book != null)
+                {
+                    preview.SelectedKeys.Add(snapshotRow.Key);
+                    preview.SelectedCandidateIndexes[snapshotRow.Key] = 0;
+                }
+
+                preview.Rows.Add(row);
+            }
+
+            // NDL失敗行
+            foreach (var failedInput in snapshot.FailedInputs)
+            {
+                preview.Rows.Add(new IsbnImportRow
+                {
+                    Input = failedInput,
+                    Error = "書誌情報の取得に失敗しました。しばらくしてから再度お試しください。",
+                    NdlLookupFailed = true
+                });
+            }
+
+            return preview;
         }
 
         [HttpPost]
@@ -1067,6 +1247,54 @@ namespace Site.Controllers
                 return seen.Add(key);
             }).ToList();
         }
+
+        /// <summary>再取得結果をスナップショットにマージする純粋ロジック。</summary>
+        internal static RefetchMergeResult MergeRefetchResults(
+            List<string> failedInputs,
+            IReadOnlyList<BookLookupCandidates> candidateLookups,
+            HashSet<string> existingIsbns,
+            HashSet<string> dbRegisteredIsbns)
+        {
+            var newRows = new List<IsbnImportSnapshotRow>();
+            var stillFailed = new List<string>();
+
+            for (var i = 0; i < failedInputs.Count; i++)
+            {
+                var lookup = candidateLookups[i];
+                var candidates = lookup.Results
+                    .Where(x => GetBookValidationError(x) == null)
+                    .ToList();
+                candidates = DistinctCandidates(candidates);
+                var book = candidates.FirstOrDefault();
+
+                if (book?.ISBN == null || lookup.NdlLookupFailed)
+                {
+                    stillFailed.Add(failedInputs[i]);
+                    continue;
+                }
+
+                if (existingIsbns.Contains(book.ISBN) ||
+                    dbRegisteredIsbns.Contains(book.ISBN))
+                {
+                    continue;
+                }
+
+                existingIsbns.Add(book.ISBN);
+                newRows.Add(new IsbnImportSnapshotRow
+                {
+                    Key = book.ISBN,
+                    ISBN = book.ISBN,
+                    Candidates = candidates,
+                    AmazonAsinCandidate = OpenBDLookupService.ToAmazonAsinCandidate(book.ISBN)
+                });
+            }
+
+            return new RefetchMergeResult(newRows, stillFailed);
+        }
+
+        internal sealed record RefetchMergeResult(
+            List<IsbnImportSnapshotRow> NewRows,
+            List<string> StillFailed);
 
         private static string? NullIfWhiteSpace(string? value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

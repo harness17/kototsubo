@@ -587,6 +587,163 @@ public class IsbnImportTests
         Assert.Equal(expected, OpenBDLookupService.NormalizeIsbn13(input));
     }
 
+    [Fact]
+    public void IsbnImportSnapshot_FailedInputs_DefaultsToEmptyList()
+    {
+        var snapshot = new IsbnImportSnapshot();
+
+        Assert.NotNull(snapshot.FailedInputs);
+        Assert.Empty(snapshot.FailedInputs);
+    }
+
+    [Fact]
+    public void IsbnImportSnapshot_FailedInputs_RoundTripsWithJsonSerialization()
+    {
+        var snapshot = new IsbnImportSnapshot
+        {
+            SourceAction = "Isbn",
+            FailedInputs = ["9784101010014", "9784003101018"],
+            Rows =
+            [
+                new IsbnImportSnapshotRow
+                {
+                    Key = "9784000000000",
+                    ISBN = "9784000000000",
+                    Candidates = [new BookLookupResult { ISBN = "9784000000000", Title = "成功した本" }]
+                }
+            ]
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(snapshot);
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<IsbnImportSnapshot>(json)!;
+
+        Assert.Equal(2, deserialized.FailedInputs.Count);
+        Assert.Contains("9784101010014", deserialized.FailedInputs);
+        Assert.Contains("9784003101018", deserialized.FailedInputs);
+        Assert.Single(deserialized.Rows);
+    }
+
+    [Fact]
+    public void IsbnImportRow_NdlLookupFailed_DefaultsToFalse()
+    {
+        var row = new IsbnImportRow();
+        Assert.False(row.NdlLookupFailed);
+    }
+
+    [Fact]
+    public void MergeRefetchResults_SuccessfulRefetch_AddsToNewRowsAndRemovesFromStillFailed()
+    {
+        var failedInputs = new List<string> { "9784101010014" };
+        var candidateLookups = new List<BookLookupCandidates>
+        {
+            new()
+            {
+                Results = [new BookLookupResult { ISBN = "9784101010014", Title = "こころ" }],
+                NdlLookupFailed = false
+            }
+        };
+        var existingIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var dbRegisteredIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var result = ImportController.MergeRefetchResults(
+            failedInputs, candidateLookups, existingIsbns, dbRegisteredIsbns);
+
+        Assert.Single(result.NewRows);
+        Assert.Equal("9784101010014", result.NewRows[0].ISBN);
+        Assert.Equal("こころ", result.NewRows[0].Candidates[0].Title);
+        Assert.Empty(result.StillFailed);
+    }
+
+    [Fact]
+    public void MergeRefetchResults_StillFailed_RemainsInStillFailed()
+    {
+        var failedInputs = new List<string> { "9784101010014" };
+        var candidateLookups = new List<BookLookupCandidates>
+        {
+            new() { Results = [], NdlLookupFailed = true }
+        };
+        var existingIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var dbRegisteredIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var result = ImportController.MergeRefetchResults(
+            failedInputs, candidateLookups, existingIsbns, dbRegisteredIsbns);
+
+        Assert.Empty(result.NewRows);
+        Assert.Single(result.StillFailed);
+        Assert.Equal("9784101010014", result.StillFailed[0]);
+    }
+
+    [Fact]
+    public void MergeRefetchResults_DuplicateInSnapshot_DroppedFromBothLists()
+    {
+        var failedInputs = new List<string> { "9784101010014" };
+        var candidateLookups = new List<BookLookupCandidates>
+        {
+            new()
+            {
+                Results = [new BookLookupResult { ISBN = "9784101010014", Title = "こころ" }],
+                NdlLookupFailed = false
+            }
+        };
+        // スナップショットに既に存在するISBN
+        var existingIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "9784101010014" };
+        var dbRegisteredIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var result = ImportController.MergeRefetchResults(
+            failedInputs, candidateLookups, existingIsbns, dbRegisteredIsbns);
+
+        Assert.Empty(result.NewRows);
+        Assert.Empty(result.StillFailed);
+    }
+
+    [Fact]
+    public void MergeRefetchResults_DuplicateInDb_DroppedFromBothLists()
+    {
+        var failedInputs = new List<string> { "9784101010014" };
+        var candidateLookups = new List<BookLookupCandidates>
+        {
+            new()
+            {
+                Results = [new BookLookupResult { ISBN = "9784101010014", Title = "こころ" }],
+                NdlLookupFailed = false
+            }
+        };
+        var existingIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // DBに既に登録済みのISBN
+        var dbRegisteredIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "9784101010014" };
+
+        var result = ImportController.MergeRefetchResults(
+            failedInputs, candidateLookups, existingIsbns, dbRegisteredIsbns);
+
+        Assert.Empty(result.NewRows);
+        Assert.Empty(result.StillFailed);
+    }
+
+    [Fact]
+    public void MergeRefetchResults_MixedResults_PartialSuccessAndFailure()
+    {
+        var failedInputs = new List<string> { "9784101010014", "9784003101018" };
+        var candidateLookups = new List<BookLookupCandidates>
+        {
+            new()
+            {
+                Results = [new BookLookupResult { ISBN = "9784101010014", Title = "成功した本" }],
+                NdlLookupFailed = false
+            },
+            new() { Results = [], NdlLookupFailed = true }
+        };
+        var existingIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var dbRegisteredIsbns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var result = ImportController.MergeRefetchResults(
+            failedInputs, candidateLookups, existingIsbns, dbRegisteredIsbns);
+
+        Assert.Single(result.NewRows);
+        Assert.Equal("9784101010014", result.NewRows[0].ISBN);
+        Assert.Single(result.StillFailed);
+        Assert.Equal("9784003101018", result.StillFailed[0]);
+    }
+
     private static FormFile CreateFile(string fileName, byte[] bytes)
     {
         return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "File", fileName);

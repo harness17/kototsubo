@@ -104,6 +104,9 @@ namespace Site.Models
         public string? Error { get; set; }
         public string? AmazonAsinCandidate { get; set; }
         public bool HasLocalAmazonMatch { get; set; }
+
+        /// <summary>NDL一時障害等で書誌取得に失敗した行。再取得ボタンの表示判定に使う。</summary>
+        public bool NdlLookupFailed { get; set; }
     }
 
     public class IsbnImportResultViewModel
@@ -118,6 +121,12 @@ namespace Site.Models
     {
         public List<IsbnImportSnapshotRow> Rows { get; set; } = new();
         public string SourceAction { get; set; } = "Isbn";
+
+        /// <summary>NDL取得に失敗した入力ISBN。再取得時にこのリストだけを再照会する。</summary>
+        public List<string> FailedInputs { get; set; } = new();
+
+        /// <summary>タイトル検索フローの「戻る」URL。再取得後も保持するためスナップショットに持つ。</summary>
+        public string? BackUrl { get; set; }
     }
 
     public class IsbnImportSnapshotRow
