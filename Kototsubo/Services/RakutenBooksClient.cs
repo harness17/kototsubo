@@ -32,13 +32,18 @@ namespace Site.Services
 
         /// <summary>楽天ブックス書籍検索 API 用。isbn パラメータで検索する。</summary>
         public Task<JsonElement?> SearchByIsbnAsync(string endpointPath, string isbn)
-            => SearchCoreAsync(endpointPath, "isbn", isbn);
+            // 蔵書登録では販売可否にかかわらず既刊を特定する必要があるため、
+            // 楽天APIの既定動作で除外される品切れ・販売終了書籍も検索対象にする。
+            => SearchCoreAsync(endpointPath, "isbn", isbn, includeOutOfStock: true);
 
         public Task<JsonElement?> SearchByJanAsync(string endpointPath, string jan)
             => SearchCoreAsync(endpointPath, "jan", jan);
 
         private async Task<JsonElement?> SearchCoreAsync(
-            string endpointPath, string parameterName, string parameterValue)
+            string endpointPath,
+            string parameterName,
+            string parameterValue,
+            bool includeOutOfStock = false)
         {
             if (!IsConfigured)
             {
@@ -53,7 +58,8 @@ namespace Site.Services
                     (!string.IsNullOrWhiteSpace(_accessKey)
                         ? $"&accessKey={Uri.EscapeDataString(_accessKey!)}"
                         : string.Empty) +
-                    $"&formatVersion=2&{parameterName}={Uri.EscapeDataString(parameterValue)}";
+                    $"&formatVersion=2&{parameterName}={Uri.EscapeDataString(parameterValue)}" +
+                    (includeOutOfStock ? "&outOfStockFlag=1" : string.Empty);
 
                 for (var attempt = 0; attempt <= MaxRetries; attempt++)
                 {

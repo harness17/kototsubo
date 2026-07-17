@@ -11,6 +11,32 @@ namespace Tests;
 public class RakutenBooksClientTests
 {
     [Fact]
+    public async Task SearchByIsbnAsync_IncludesOutOfStockItemsInRequest()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        var handler = new StubHandler(request =>
+        {
+            capturedRequest = request;
+            return JsonResponse("""
+                {
+                  "items": [
+                    { "title": "羊のうた（5）", "isbn": "9784344800267" }
+                  ]
+                }
+                """);
+        });
+        var client = CreateClient(handler);
+
+        var result = await client.SearchByIsbnAsync(
+            "BooksBook/Search/20170404",
+            "9784344800267");
+
+        Assert.True(result.HasValue);
+        Assert.Contains("isbn=9784344800267", capturedRequest!.RequestUri!.Query);
+        Assert.Contains("outOfStockFlag=1", capturedRequest.RequestUri.Query);
+    }
+
+    [Fact]
     public async Task SearchByJanAsync_ReturnsFirstItem_AndSendsRequiredQueryParameters()
     {
         HttpRequestMessage? capturedRequest = null;
@@ -37,6 +63,7 @@ public class RakutenBooksClientTests
         Assert.Contains("applicationId=test-app-id", capturedRequest!.RequestUri!.Query);
         Assert.Contains("formatVersion=2", capturedRequest.RequestUri.Query);
         Assert.Contains("jan=4902370550733", capturedRequest.RequestUri.Query);
+        Assert.DoesNotContain("outOfStockFlag", capturedRequest.RequestUri.Query);
     }
 
     [Theory]
