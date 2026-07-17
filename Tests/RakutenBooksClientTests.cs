@@ -37,7 +37,7 @@ public class RakutenBooksClientTests
     }
 
     [Fact]
-    public async Task SearchByJanAsync_ReturnsFirstItem_AndSendsRequiredQueryParameters()
+    public async Task SearchByJanAsync_ReturnsFirstItem_AndIncludesOutOfStockItems()
     {
         HttpRequestMessage? capturedRequest = null;
         var handler = new StubHandler(request =>
@@ -63,7 +63,7 @@ public class RakutenBooksClientTests
         Assert.Contains("applicationId=test-app-id", capturedRequest!.RequestUri!.Query);
         Assert.Contains("formatVersion=2", capturedRequest.RequestUri.Query);
         Assert.Contains("jan=4902370550733", capturedRequest.RequestUri.Query);
-        Assert.DoesNotContain("outOfStockFlag", capturedRequest.RequestUri.Query);
+        Assert.Contains("outOfStockFlag=1", capturedRequest.RequestUri.Query);
     }
 
     [Theory]
